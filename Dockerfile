@@ -109,7 +109,7 @@ COPY --from=installer /tgt /
 CMD ["bash"]
 
 FROM base AS package-base
-RUN dnf install -y rpm-build rpmdevtools dnf-plugins-core gettext-base && dnf clean all && rpmdev-setuptree
+RUN dnf install -y rpm-build rpmdevtools dnf-plugins-core gettext && dnf clean all && rpmdev-setuptree
 
 FROM package-base AS package-faircmakemodules
 
