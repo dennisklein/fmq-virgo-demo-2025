@@ -1,6 +1,8 @@
 # SPDX-FileCopyrightText: 2025 GSI Helmholtzzentrum für Schwerionenforschung GmbH
 # SPDX-License-Identifier: GPL-3.0-or-later
 
+%global debug_package %{nil}
+
 Name:           fairlogger
 Version:        ${VERSION}
 Release:        1%{?dist}

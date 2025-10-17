@@ -14,7 +14,7 @@ ARG RPM_DATE="Fri Oct 17 2025"
 # Build images (need to be inside GSI intranet)
 # Base image:
 #   docker buildx build --target base --network host -t virgo:3 .
-# FairMQ image:
+# FairMQ image (with devel packages):
 #   docker buildx build --target fairmq --network host -t virgo:3-fairmq .
 
 # Convert to Apptainer format
@@ -78,7 +78,7 @@ cat <<EOC | tee /tmp/dnf.conf
 reposdir=${tgt}${reposdir}
 EOC
 
-alias dnf="dnf --installroot=${tgt} --releasever=${tgt_releasever} --config /tmp/dnf.conf -y"
+alias dnf="dnf --installroot=${tgt} --releasever=${tgt_releasever} --config /tmp/dnf.conf --setopt=install_weak_deps=False -y"
 dnf repolist --all
 dnf install bash coreutils dnf langpacks-en
 rm -rf ${tgt}${reposdir}/Rocky*.repo
@@ -223,7 +223,7 @@ RUN dnf builddep -y ~/rpmbuild/SPECS/fairmq.spec && \
     mkdir -p /rpms && \
     cp ~/rpmbuild/RPMS/*/*.rpm /rpms/
 
-# Final runtime image with complete FAIR software stack
+# Final runtime image with complete FAIR software stack (includes devel packages)
 FROM fairlogger AS fairmq
 
 COPY --from=package-fairmq /rpms/*.rpm /tmp/rpms/
