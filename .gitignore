@@ -1,0 +1,6 @@
+# SPDX-FileCopyrightText: 2025 GSI Helmholtzzentrum für Schwerionenforschung GmbH
+# SPDX-License-Identifier: GPL-3.0-or-later
+
+# Claude Code configuration
+.claude/
+CLAUDE.md

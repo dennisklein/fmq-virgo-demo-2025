@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2025 GSI Helmholtzzentrum für Schwerionenforschung GmbH
+# SPDX-License-Identifier: GPL-3.0-or-later
+
 # Build just the base image (need to be inside GSI intranet)
 # docker buildx build --target base --network host -t virgo:3 <dir-where-this-dockerfile-is>
 
