@@ -1,0 +1,15 @@
+# SPDX-FileCopyrightText: 2025 GSI Helmholtzzentrum für Schwerionenforschung GmbH
+# SPDX-License-Identifier: GPL-3.0-or-later
+
+services:
+  squid-cache:
+    image: ubuntu/squid:latest
+    container_name: squid-cache
+    network_mode: host
+    volumes:
+      - squid-cache:/var/spool/squid
+      - ./squid.conf:/etc/squid/squid.conf:ro,z
+    restart: unless-stopped
+
+volumes:
+  squid-cache:

@@ -1,0 +1,66 @@
+# SPDX-FileCopyrightText: 2025 GSI Helmholtzzentrum für Schwerionenforschung GmbH
+# SPDX-License-Identifier: GPL-3.0-or-later
+
+Name:           fairmq
+Version:        ${VERSION}
+Release:        1%{?dist}
+Summary:        C++ Message Queuing Library and Framework
+License:        ${LICENSE}
+URL:            https://github.com/FairRootGroup/FairMQ
+Source0:        %{name}-v%{version}.tar.gz
+
+BuildRequires:  boost-devel
+BuildRequires:  cmake >= 3.15
+BuildRequires:  faircmakemodules
+BuildRequires:  fairlogger-devel
+BuildRequires:  gcc-c++
+BuildRequires:  git
+BuildRequires:  ninja-build
+BuildRequires:  zeromq-devel
+
+Requires:       fairlogger%{?_isa}
+
+%description
+FairMQ is a C++ Message Queuing Library and Framework providing
+an asynchronous message passing abstraction for different transport
+technologies. It supports high-throughput, zero-copy data transport.
+
+%package devel
+Summary:        Development files for FairMQ
+Requires:       %{name}%{?_isa} = %{version}-%{release}
+Requires:       fairlogger-devel
+
+%description devel
+Development files and headers for FairMQ.
+
+%prep
+%autosetup -n %{name}-v%{version}
+sed -i 's/get_git_version()/get_git_version(DEFAULT_VERSION "%{version}")/' CMakeLists.txt
+
+%build
+%cmake \
+    -GNinja \
+    -DCMAKE_BUILD_TYPE=Release \
+    -DBUILD_TESTING=OFF \
+    -DBUILD_EXAMPLES=OFF \
+    .
+%cmake_build
+
+%install
+%cmake_install
+
+%files
+%license LICENSE
+%doc README.md
+%{_libdir}/lib%{name}.so.*
+%{_bindir}/%{name}-*
+
+%files devel
+%{_includedir}/%{name}/
+%{_libdir}/lib%{name}.so
+%{_libdir}/cmake/FairMQ*/
+%{_datadir}/%{name}/
+
+%changelog
+* ${DATE} ${MAINTAINER} - ${VERSION}-1
+- Initial RPM package

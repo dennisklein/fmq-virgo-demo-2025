@@ -1,0 +1,40 @@
+# SPDX-FileCopyrightText: 2025 GSI Helmholtzzentrum für Schwerionenforschung GmbH
+# SPDX-License-Identifier: GPL-3.0-or-later
+
+Name:           faircmakemodules
+Version:        ${VERSION}
+Release:        1%{?dist}
+Summary:        CMake Modules for FAIR software projects
+License:        ${LICENSE}
+URL:            https://github.com/FairRootGroup/FairCMakeModules
+Source0:        %{name}-v%{version}.tar.gz
+BuildArch:      noarch
+
+BuildRequires:  cmake >= 3.15
+BuildRequires:  gcc-c++
+BuildRequires:  git
+
+%description
+CMake modules developed in the context of various FAIR software projects.
+
+%prep
+%autosetup -n %{name}-v%{version}
+
+%build
+%cmake \
+    -DCMAKE_BUILD_TYPE=Release \
+    .
+%cmake_build
+
+%install
+%cmake_install
+
+%files
+%license LICENSE
+%{_datadir}/cmake/FairCMakeModules-%{version}/
+%{_datadir}/faircmakemodules/
+%{_datadir}/doc/FairCMakeModules/
+
+%changelog
+* ${DATE} ${MAINTAINER} - ${VERSION}-1
+- Initial RPM package
