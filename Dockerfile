@@ -11,22 +11,6 @@ ARG RPM_MAINTAINER="GSI <sde@gsi.de>"
 ARG RPM_LICENSE="LGPL-3.0"
 ARG RPM_DATE="Fri Oct 17 2025"
 
-# Build images (need to be inside GSI intranet)
-# Base image:
-#   docker buildx build --target base --network host -t virgo:3 .
-# FairMQ image (with devel packages):
-#   docker buildx build --target fairmq --network host -t virgo:3-fairmq .
-
-# Convert to Apptainer format
-# apptainer build virgo_3.sif docker-daemon://virgo:3
-# apptainer build virgo_3_fairmq.sif docker-daemon://virgo:3-fairmq
-
-# Usage
-# ssh virgo.hpc.gsi.de
-# virgo> apptainer exec --bind /etc/slurm,/var/run/munge,/var/spool/slurmd,/var/lib/sss/pipes/nss virgo_3.sif bash -l
-# virgo/Apptainer> export SLURM_SINGULARITY_CONTAINER=<FULL-PATH-TO>virgo_3.sif # or --singularity-container arg to srun/sbatch
-# virgo/Apptainer> srun ... / sbatch ...
-
 FROM rockylinux:8 AS installer
 
 # Variables to deduplicate the content of this file

@@ -67,6 +67,7 @@ The cache data persists in a Docker volume, so you can stop and restart the cach
 
 ### 3. Convert to Apptainer Format
 
+**From local Docker images:**
 ```bash
 # Base image
 apptainer build virgo_3.sif docker-daemon://virgo:3
@@ -75,11 +76,28 @@ apptainer build virgo_3.sif docker-daemon://virgo:3
 apptainer build virgo_3_fairmq.sif docker-daemon://virgo:3-fairmq
 ```
 
+**Directly from GitHub Container Registry** (no Docker required):
+```bash
+# Base image
+apptainer build virgo_3.sif docker://ghcr.io/dennisklein/fmq-virgo-demo-2025/virgo:3
+
+# FairMQ image
+apptainer build virgo_3_fairmq.sif docker://ghcr.io/dennisklein/fmq-virgo-demo-2025/virgo:3-fairmq
+```
+
+This is particularly useful on the Virgo cluster where Docker may not be available. Apptainer will automatically pull and convert the image in one step.
+
 ## Usage
 
 ### Running on Virgo Cluster
 
-1. Copy the `.sif` file to the Virgo cluster
+1. **Obtain the container image** - either:
+   - Copy a pre-built `.sif` file to the cluster, or
+   - Build directly on the cluster from GitHub Container Registry:
+     ```bash
+     apptainer build virgo_3_fairmq.sif docker://ghcr.io/dennisklein/fmq-virgo-demo-2025/virgo:3-fairmq
+     ```
+
 2. SSH into the cluster:
 
 ```bash
