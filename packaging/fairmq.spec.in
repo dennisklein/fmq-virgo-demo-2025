@@ -7,9 +7,9 @@ Name:           fairmq
 Version:        ${VERSION}
 Release:        1%{?dist}
 Summary:        C++ Message Queuing Library and Framework
-License:        ${LICENSE}
+License:        LGPL-3.0-or-later
 URL:            https://github.com/FairRootGroup/FairMQ
-Source0:        %{name}-v%{version}.tar.gz
+Source0:        %{name}-%{version}.tar.gz
 
 BuildRequires:  boost-devel
 BuildRequires:  cmake >= 3.15
@@ -36,7 +36,7 @@ Requires:       fairlogger-devel
 Development files and headers for FairMQ.
 
 %prep
-%autosetup -n %{name}-v%{version}
+%autosetup -n %{name}-%{version}
 sed -i 's/get_git_version()/get_git_version(DEFAULT_VERSION "%{version}")/' CMakeLists.txt
 
 %build
@@ -64,5 +64,5 @@ sed -i 's/get_git_version()/get_git_version(DEFAULT_VERSION "%{version}")/' CMak
 %{_datadir}/%{name}/
 
 %changelog
-* ${DATE} ${MAINTAINER} - ${VERSION}-1
+* ${DATE} SDE Group <cit-sde@gsi.de> - ${VERSION}-1
 - Initial RPM package
