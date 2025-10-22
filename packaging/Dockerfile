@@ -169,3 +169,14 @@ EOF
 
 # Default command shows the built RPMs
 CMD ["sh", "-c", ". ./fair-rpm-build-lib.sh && fair_init_config && ls -lh ${FAIR_OUTPUT_DIR}/*.rpm"]
+
+# Stage 9: Export repository for consumption by other containers
+# This image contains a complete yum/dnf repository with all FAIR packages
+FROM scratch AS repo
+
+# Copy built RPMs with repository metadata (createrepo_c already ran)
+COPY --from=verify /build/rpms/ /rpms/
+
+# Metadata for repository consumers
+LABEL org.opencontainers.image.description="DNF/YUM repository with FAIR software packages (FairCMakeModules, FairLogger, FairMQ)"
+LABEL org.opencontainers.image.source="https://github.com/FairRootGroup"

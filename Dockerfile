@@ -1,15 +1,7 @@
 # SPDX-FileCopyrightText: 2025 GSI Helmholtzzentrum für Schwerionenforschung GmbH
 # SPDX-License-Identifier: GPL-3.0-or-later
 
-# Version build arguments (global, available to all stages)
-ARG FAIRCMAKEMODULES_VERSION=v1.0.0
-ARG FAIRLOGGER_VERSION=v1.11.1
-ARG FAIRMQ_VERSION=v1.9.0
-
-# Common build arguments for RPM packages
-ARG RPM_MAINTAINER="GSI <sde@gsi.de>"
-ARG RPM_LICENSE="LGPL-3.0"
-ARG RPM_DATE="Fri Oct 17 2025"
+# Virgo Cluster Container Image - see README.md for build instructions
 
 FROM rockylinux:8 AS installer
 
@@ -21,7 +13,8 @@ ENV reposdir=/etc/yum.repos.d
 ENV tgt_releasever=8
 ENV mirror=http://cluster-mirror.hpc.gsi.de
 
-RUN <<EORUN
+RUN --mount=type=cache,target=/var/cache/dnf \
+    --mount=type=cache,target=/var/cache/yum <<EORUN
 mkdir -p ${tgt}${reposdir}
 # One can lookup this from a Virgo submitter node in /etc/yum.repos.d/gsi-*.repo
 cat <<EOC | tee ${tgt}${reposdir}/gsi-rocky.repo
@@ -92,123 +85,38 @@ COPY --from=installer /tgt /
 
 CMD ["bash"]
 
-FROM base AS package-base
-RUN dnf install -y rpm-build rpmdevtools dnf-plugins-core gettext && dnf clean all && rpmdev-setuptree
+# FAIR package repository (provided via fairrepo build context from packaging/)
+FROM fairrepo AS fair-repo
 
-FROM package-base AS package-faircmakemodules
+FROM base AS fairmq
 
-ARG FAIRCMAKEMODULES_VERSION
-ARG RPM_MAINTAINER
-ARG RPM_LICENSE
-ARG RPM_DATE
+# Copy FAIR package repository
+COPY --from=fair-repo /rpms /fair-repo
 
-# Clone FairCMakeModules source with full git metadata
-ADD https://github.com/FairRootGroup/FairCMakeModules.git#${FAIRCMAKEMODULES_VERSION} /tmp/faircmakemodules-src
+# Install FAIR packages from local repository
+RUN --mount=type=cache,target=/var/cache/dnf \
+    --mount=type=cache,target=/var/cache/yum <<EOF
+set -e
 
-# Create source tarball for RPM build
-RUN cd /tmp/faircmakemodules-src \
-    && tar czf ~/rpmbuild/SOURCES/faircmakemodules-${FAIRCMAKEMODULES_VERSION}.tar.gz \
-    --transform "s,^,faircmakemodules-${FAIRCMAKEMODULES_VERSION}/," .
+# Configure local FAIR repository
+cat > /etc/yum.repos.d/fair-local.repo <<EOC
+[fair-local]
+name=Local FAIR packages
+baseurl=file:///fair-repo
+enabled=1
+gpgcheck=0
+priority=1
+EOC
 
-# Copy spec template and substitute variables
-COPY specs/faircmakemodules.spec.in /tmp/
-RUN export VERSION=${FAIRCMAKEMODULES_VERSION#v} \
-           LICENSE=${RPM_LICENSE} \
-           MAINTAINER=${RPM_MAINTAINER} \
-           DATE=${RPM_DATE} && \
-    envsubst < /tmp/faircmakemodules.spec.in > ~/rpmbuild/SPECS/faircmakemodules.spec
+# Install all FAIR packages (including devel packages for building)
+dnf install -y \
+    faircmakemodules \
+    fairlogger \
+    fairlogger-devel \
+    fairmq \
+    fairmq-devel
 
-# Install dependencies, build RPMs, and collect
-RUN dnf builddep -y ~/rpmbuild/SPECS/faircmakemodules.spec && \
-    rpmbuild -ba ~/rpmbuild/SPECS/faircmakemodules.spec && \
-    mkdir -p /rpms && \
-    cp ~/rpmbuild/RPMS/*/*.rpm /rpms/
-
-# Runtime image with FairCMakeModules installed
-FROM base AS faircmakemodules
-
-COPY --from=package-faircmakemodules /rpms/*.rpm /tmp/rpms/
-RUN dnf install -y /tmp/rpms/*.rpm && dnf clean all && rm -rf /tmp/rpms
-
-FROM package-base AS package-fairlogger
-
-ARG FAIRLOGGER_VERSION
-ARG RPM_MAINTAINER
-ARG RPM_LICENSE
-ARG RPM_DATE
-
-# Install faircmakemodules (required by BuildRequires)
-COPY --from=package-faircmakemodules /rpms/*.rpm /tmp/rpms/
-RUN dnf install -y /tmp/rpms/*.rpm && rm -rf /tmp/rpms
-
-# Clone FairLogger source with full git metadata
-ADD https://github.com/FairRootGroup/FairLogger.git#${FAIRLOGGER_VERSION} /tmp/fairlogger-src
-
-# Create source tarball for RPM build
-RUN cd /tmp/fairlogger-src \
-    && tar czf ~/rpmbuild/SOURCES/fairlogger-${FAIRLOGGER_VERSION}.tar.gz \
-    --transform "s,^,fairlogger-${FAIRLOGGER_VERSION}/," .
-
-# Copy spec template and substitute variables
-COPY specs/fairlogger.spec.in /tmp/
-RUN export VERSION=${FAIRLOGGER_VERSION#v} \
-           LICENSE=${RPM_LICENSE} \
-           MAINTAINER=${RPM_MAINTAINER} \
-           DATE=${RPM_DATE} && \
-    envsubst < /tmp/fairlogger.spec.in > ~/rpmbuild/SPECS/fairlogger.spec
-
-# Install dependencies, build RPMs, and collect
-RUN dnf builddep -y ~/rpmbuild/SPECS/fairlogger.spec && \
-    rpmbuild -ba ~/rpmbuild/SPECS/fairlogger.spec && \
-    mkdir -p /rpms && \
-    cp ~/rpmbuild/RPMS/*/*.rpm /rpms/
-
-# Runtime image with FairCMakeModules and FairLogger installed
-FROM faircmakemodules AS fairlogger
-
-COPY --from=package-fairlogger /rpms/*.rpm /tmp/rpms/
-RUN dnf install -y /tmp/rpms/*.rpm && dnf clean all && rm -rf /tmp/rpms
-
-FROM package-base AS package-fairmq
-
-ARG FAIRMQ_VERSION
-ARG RPM_MAINTAINER
-ARG RPM_LICENSE
-ARG RPM_DATE
-
-# Install faircmakemodules and fairlogger-devel (required by BuildRequires)
-COPY --from=package-faircmakemodules /rpms/*.rpm /tmp/rpms-cmake/
-COPY --from=package-fairlogger /rpms/*.rpm /tmp/rpms-logger/
-RUN dnf install -y /tmp/rpms-cmake/*.rpm /tmp/rpms-logger/*.rpm && rm -rf /tmp/rpms-*
-
-# Install git for submodule operations
-RUN dnf install -y git && dnf clean all
-
-# Clone FairMQ source with full git metadata (needed for version detection)
-ADD --keep-git-dir=true https://github.com/FairRootGroup/FairMQ.git#${FAIRMQ_VERSION} /tmp/fairmq-src
-
-# Initialize submodules and create source tarball for RPM build
-RUN cd /tmp/fairmq-src \
-    && git submodule update --init --recursive \
-    && tar czf ~/rpmbuild/SOURCES/fairmq-${FAIRMQ_VERSION}.tar.gz \
-    --transform "s,^,fairmq-${FAIRMQ_VERSION}/," .
-
-# Copy spec template and substitute variables
-COPY specs/fairmq.spec.in /tmp/
-RUN export VERSION=${FAIRMQ_VERSION#v} \
-           LICENSE=${RPM_LICENSE} \
-           MAINTAINER=${RPM_MAINTAINER} \
-           DATE=${RPM_DATE} && \
-    envsubst < /tmp/fairmq.spec.in > ~/rpmbuild/SPECS/fairmq.spec
-
-# Install dependencies, build RPMs, and collect
-RUN dnf builddep -y ~/rpmbuild/SPECS/fairmq.spec && \
-    rpmbuild -ba ~/rpmbuild/SPECS/fairmq.spec && \
-    mkdir -p /rpms && \
-    cp ~/rpmbuild/RPMS/*/*.rpm /rpms/
-
-# Final runtime image with complete FAIR software stack (includes devel packages)
-FROM fairlogger AS fairmq
-
-COPY --from=package-fairmq /rpms/*.rpm /tmp/rpms/
-RUN dnf install -y /tmp/rpms/*.rpm && dnf clean all && rm -rf /tmp/rpms
+# Cleanup
+dnf clean all
+rm -rf /fair-repo /etc/yum.repos.d/fair-local.repo
+EOF

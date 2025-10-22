@@ -20,37 +20,50 @@ Docker/Apptainer container images for running SLURM workloads on the GSI Virgo c
 
 ## Quick Start
 
+### Setup Build Environment
+
+Create a Docker buildx builder with security.insecure entitlement (required for RPM building with mock):
+
+```bash
+docker buildx create --name fair-builder --driver docker-container \
+  --buildkitd-flags '--allow-insecure-entitlement security.insecure'
+```
+
 ### Build Images
 
-**Base image** (minimal SLURM-enabled container):
+**Build all images** (uses docker buildx bake):
 ```bash
-docker buildx build --target base --network host -t virgo:3 .
+docker buildx bake --builder fair-builder --allow security.insecure
 ```
 
-**FairMQ image** (base + FairMQ libraries and tools):
+**Build individual targets:**
 ```bash
-docker buildx build --target fairmq --network host -t virgo:3-fairmq .
+# Just the FAIR RPM repository
+docker buildx bake --builder fair-builder --allow security.insecure fair-repo
+
+# Full Virgo cluster image with FAIR software
+docker buildx bake --builder fair-builder --allow security.insecure fairmq
 ```
 
-Customize software versions:
-```bash
-docker buildx build --target fairmq --network host \
-  --build-arg FAIRCMAKEMODULES_VERSION=v1.0.0 \
-  --build-arg FAIRLOGGER_VERSION=v1.11.1 \
-  --build-arg FAIRMQ_VERSION=v1.9.0 \
-  -t virgo:3-fairmq .
+**Customize software versions** by editing `docker-bake.hcl`:
+```hcl
+args = {
+  FAIRCMAKEMODULES_VERSION = "1.0.0"
+  FAIRLOGGER_VERSION = "1.11.1"
+  FAIRMQ_VERSION = "1.9.0"
+}
 ```
 
 ### Convert to Apptainer
 
 From local Docker images:
 ```bash
-apptainer build virgo_3_fairmq.sif docker-daemon://virgo:3-fairmq
+apptainer build virgo-fairmq.sif docker-daemon://virgo-fairmq:latest
 ```
 
 Or pull directly from GitHub Container Registry:
 ```bash
-apptainer build virgo_3_fairmq.sif docker://ghcr.io/dennisklein/fmq-virgo-demo-2025/virgo:3-fairmq
+apptainer build virgo-fairmq.sif docker://ghcr.io/dennisklein/fmq-virgo-demo-2025/virgo-fairmq:latest
 ```
 
 ## Usage on Virgo Cluster
@@ -60,18 +73,18 @@ Launch the container with required bind mounts:
 ```bash
 apptainer exec \
   --bind /etc/slurm,/var/run/munge,/var/spool/slurmd,/var/lib/sss/pipes/nss \
-  virgo_3_fairmq.sif bash -l
+  virgo-fairmq.sif bash -l
 ```
 
 Use with SLURM:
 
 ```bash
 # Set environment variable
-export SLURM_SINGULARITY_CONTAINER=/full/path/to/virgo_3_fairmq.sif
+export SLURM_SINGULARITY_CONTAINER=/full/path/to/virgo-fairmq.sif
 
 # Or pass directly to commands
-srun --singularity-container=/full/path/to/virgo_3_fairmq.sif <command>
-sbatch --singularity-container=/full/path/to/virgo_3_fairmq.sif <script>
+srun --singularity-container=/full/path/to/virgo-fairmq.sif <command>
+sbatch --singularity-container=/full/path/to/virgo-fairmq.sif <script>
 ```
 
 ### Required Bind Mounts
@@ -99,48 +112,41 @@ Base image plus:
   - Development headers and CMake configs
   - High-throughput, zero-copy transport
 
-## Build Optimization
+## Build System
 
-### HTTP Caching (Optional)
+### Architecture
 
-Speed up repeated builds with a local HTTP cache:
+The build system uses Docker Buildx Bake to orchestrate multi-stage builds:
 
-```bash
-# Start cache
-docker compose -f build/docker-compose.yml up -d
-
-# Build with cache
-docker buildx build --target fairmq --network host \
-  --build-arg http_proxy=http://localhost:3128 \
-  --build-arg https_proxy=http://localhost:3128 \
-  -t virgo:3-fairmq .
-
-# Stop cache
-docker compose -f build/docker-compose.yml down
-```
+1. **packaging/** - Builds FAIR software RPMs using mock in isolated stages
+2. **fair-repo** - Exports built RPMs as a DNF/YUM repository image
+3. **Dockerfile** - Consumes FAIR packages from the repository
 
 ### Available Build Targets
 
-**Runtime Stages:**
-- `base` - Minimal Virgo 3 + SLURM
-- `faircmakemodules` - base + FairCMakeModules
-- `fairlogger` - faircmakemodules + FairLogger
-- `fairmq` - fairlogger + FairMQ (complete stack)
+See `docker-bake.hcl` for complete configuration.
 
-**Build Stages:**
-- `package-faircmakemodules` - Builds FairCMakeModules RPMs
-- `package-fairlogger` - Builds FairLogger RPMs
-- `package-fairmq` - Builds FairMQ RPMs
+**Bake Targets:**
+- `fair-repo` - FAIR software DNF/YUM repository (FairCMakeModules, FairLogger, FairMQ)
+- `fairmq` - Complete Virgo cluster image with FAIR software stack
+
+**Dockerfile Stages:**
+- `base` - Minimal Virgo 3 + SLURM
+- `fairmq` - base + FAIR software from repository
 
 ## Configuration
 
-### Build Arguments
+### Software Versions
 
-| Argument | Default | Description |
+Configured in `docker-bake.hcl` under the `fair-repo` target:
+
+| Variable | Default | Description |
 |----------|---------|-------------|
-| `FAIRCMAKEMODULES_VERSION` | `v1.0.0` | FairCMakeModules git tag |
-| `FAIRLOGGER_VERSION` | `v1.11.1` | FairLogger git tag |
-| `FAIRMQ_VERSION` | `v1.9.0` | FairMQ git tag |
+| `FAIRCMAKEMODULES_VERSION` | `1.0.0` | FairCMakeModules version (without 'v' prefix) |
+| `FAIRLOGGER_VERSION` | `1.11.1` | FairLogger version (without 'v' prefix) |
+| `FAIRMQ_VERSION` | `1.9.0` | FairMQ version (without 'v' prefix) |
+
+**Note:** Versions are specified without the 'v' prefix. The build system adds 'v' when cloning git tags.
 
 ### Technical Details
 
