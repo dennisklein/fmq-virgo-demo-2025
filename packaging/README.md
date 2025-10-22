@@ -23,7 +23,7 @@ RPM spec templates for building FAIR software packages on RPM-based Linux distri
 
 - **Architecture:** Platform-specific
 - **Upstream:** https://github.com/FairRootGroup/FairLogger
-- **BuildRequires:** cmake >= 3.15, gcc-c++, git, boost-devel, fmt-devel
+- **BuildRequires:** cmake >= 3.15, faircmakemodules, gcc-c++, git
 
 ### fairmq.spec.in
 
@@ -32,16 +32,14 @@ RPM spec templates for building FAIR software packages on RPM-based Linux distri
 - **Architecture:** Platform-specific
 - **Upstream:** https://github.com/FairRootGroup/FairMQ
 - **Sub-packages:** fairmq, fairmq-devel
-- **BuildRequires:** cmake >= 3.15, gcc-c++, git, boost-devel, fairlogger-devel, zeromq-devel, protobuf-devel
+- **BuildRequires:** boost-devel, cmake >= 3.15, faircmakemodules, fairlogger-devel, gcc-c++, git, ninja-build, zeromq-devel
 
 ## Template Variables
 
-Each `.spec.in` file uses template variables that must be substituted:
+Each `.spec.in` file uses template variables that are substituted during the build process:
 
 - `${VERSION}` - Software version without 'v' prefix (e.g., `1.0.0`)
-- `${LICENSE}` - SPDX license identifier (e.g., `LGPL-3.0-or-later`)
 - `${DATE}` - Build date in changelog format (e.g., `Wed Jan 15 2025`)
-- `${MAINTAINER}` - Package maintainer (e.g., `Your Name <email@example.com>`)
 
 ## Building Packages
 
@@ -360,20 +358,4 @@ The library includes convenience logging functions that respect the `FAIR_LOG_LE
 fair_log_info "Starting build process..."
 fair_log_debug "Source directory: /src/fairmq"
 fair_log_error "Build failed!"
-```
-
-## Testing
-
-A Dockerfile is provided to test the build library in a clean environment:
-
-```bash
-# Build and run the test
-docker build -t fair-rpm-test .
-
-# The build process will verify all expected RPMs are created
-# Check the output for "✓ All expected RPM files found!"
-
-# Extract built RPMs (optional)
-docker run --rm -v $(pwd)/output:/output fair-rpm-test \
-    sh -c 'source fair-rpm-build-lib.sh && fair_init_config && cp ${FAIR_OUTPUT_DIR}/*.rpm /output/'
 ```
